@@ -25,6 +25,7 @@
 #include "weapons.h"
 #include "soundent.h"
 #include "decals.h"
+//#include "molotov_fire.h"
 
 
 //===================grenade
@@ -375,6 +376,32 @@ void CGrenade::Spawn()
 
 
 CGrenade* CGrenade::ShootContact(entvars_t* pevOwner, Vector vecStart, Vector vecVelocity)
+{
+	CGrenade* pGrenade = GetClassPtr((CGrenade*)NULL);
+	pGrenade->Spawn();
+	// contact grenades arc lower
+	pGrenade->pev->gravity = 0.5; // lower gravity since grenade is aerodynamic and engine doesn't know it.
+	UTIL_SetOrigin(pGrenade->pev, vecStart);
+	pGrenade->pev->velocity = vecVelocity;
+	pGrenade->pev->angles = UTIL_VecToAngles(pGrenade->pev->velocity);
+	pGrenade->pev->owner = ENT(pevOwner);
+
+	// make monsters afaid of it while in the air
+	pGrenade->SetThink(&CGrenade::DangerSoundThink);
+	pGrenade->pev->nextthink = gpGlobals->time;
+
+	// Tumble in air
+	pGrenade->pev->avelocity.x = RANDOM_FLOAT(-100, -500);
+
+	// Explode on contact
+	pGrenade->SetTouch(&CGrenade::ExplodeTouch);
+
+	pGrenade->pev->dmg = gSkillData.plrDmgM203Grenade;
+
+	return pGrenade;
+}
+
+CGrenade* CGrenade::MollyContact(entvars_t* pevOwner, Vector vecStart, Vector vecVelocity)
 {
 	CGrenade* pGrenade = GetClassPtr((CGrenade*)NULL);
 	pGrenade->Spawn();

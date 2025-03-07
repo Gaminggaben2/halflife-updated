@@ -122,9 +122,34 @@ void CGib::SpawnHeadGib(entvars_t* pevVictim)
 {
 	CGib* pGib = GetClassPtr((CGib*)NULL);
 
-	if (g_Language == LANGUAGE_GERMAN)
+	if (FClassnameIs(pevVictim, "monster_zombie"))
 	{
-		pGib->Spawn("models/germangibs.mdl"); // throw one head
+		pGib->Spawn("models/zombiegibs1.mdl");
+		pGib->pev->body = 0;
+	}
+	else if (FClassnameIs(pevVictim, "monster_alien_slave"))
+	{
+		pGib->Spawn("models/islave_gibs1.mdl");
+		pGib->pev->body = 0;
+	}
+	else if (FClassnameIs(pevVictim, "monster_human_grunt"))
+	{
+		pGib->Spawn("models/gib_hgrunt.mdl");
+		pGib->pev->body = 0;
+	}
+	else if (FClassnameIs(pevVictim, "monster_alien_grunt"))
+	{
+		pGib->Spawn("models/AGRUNT_Gibs1.mdl");
+		pGib->pev->body = 0;
+	}
+	else if (FClassnameIs(pevVictim, "monster_alien_controller"))
+	{
+		pGib->Spawn("models/CONTROLLER_Gib1.mdl");
+		pGib->pev->body = 0;
+	}
+	else if (FClassnameIs(pevVictim, "monster_houndeye"))
+	{
+		pGib->Spawn("models/hound_gibs1.mdl");
 		pGib->pev->body = 0;
 	}
 	else
@@ -184,13 +209,9 @@ void CGib::SpawnRandomGibs(entvars_t* pevVictim, int cGibs, bool human)
 	{
 		CGib* pGib = GetClassPtr((CGib*)NULL);
 
-		if (g_Language == LANGUAGE_GERMAN)
-		{
-			pGib->Spawn("models/germangibs.mdl");
-			pGib->pev->body = RANDOM_LONG(0, GERMAN_GIB_COUNT - 1);
-		}
-		else
-		{
+		
+//		else
+//		{
 			if (human)
 			{
 				// human pieces
@@ -203,7 +224,7 @@ void CGib::SpawnRandomGibs(entvars_t* pevVictim, int cGibs, bool human)
 				pGib->Spawn("models/agibs.mdl");
 				pGib->pev->body = RANDOM_LONG(0, ALIEN_GIB_COUNT - 1);
 			}
-		}
+//		}
 
 		if (pevVictim)
 		{
@@ -317,6 +338,7 @@ void CBaseMonster::GibMonster()
 	{
 		if (CVAR_GET_FLOAT("violence_agibs") != 0) // Should never get here, but someone might call it directly
 		{
+			CGib::SpawnHeadGib(pev);
 			CGib::SpawnRandomGibs(pev, 4, false); // Throw alien gibs
 		}
 		gibbed = true;
@@ -983,7 +1005,7 @@ bool CBaseMonster::DeadTakeDamage(entvars_t* pevInflictor, entvars_t* pevAttacke
 		}
 	}
 
-#if 0 // turn this back on when the bounding box issues are resolved.
+//#if 0 // turn this back on when the bounding box issues are resolved.
 
 	pev->flags &= ~FL_ONGROUND;
 	pev->origin.z += 1;
@@ -994,7 +1016,7 @@ bool CBaseMonster::DeadTakeDamage(entvars_t* pevInflictor, entvars_t* pevAttacke
 		pev->velocity = pev->velocity + vecDir * -DamageForce( flDamage );
 	}
 
-#endif
+//#endif
 
 	// kill the corpse if enough damage was done to destroy the corpse and the damage is of a type that is allowed to destroy the corpse.
 	if ((bitsDamageType & DMG_GIB_CORPSE) != 0)

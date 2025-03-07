@@ -409,96 +409,74 @@ bool CTripmine::GetItemInfo(ItemInfo* p)
 	return true;
 }
 
-bool CTripmine::Deploy( )
+bool CTripmine::Deploy()
 {
 	pev->body = 0;
-	return DefaultDeploy( "models/v_tripmine.mdl", "models/p_tripmine.mdl", TRIPMINE_DRAW, "trip" );
+	return DefaultDeploy("models/v_tripmine.mdl", "models/p_tripmine.mdl", TRIPMINE_DRAW, "trip");
 }
 
-void CTripmine::PlaceMine(void)
-{
-	Vector vecSrc = m_pPlayer->GetGunPosition();
-	Vector vecAiming = gpGlobals->v_forward;
-	TraceResult tr;
-	UTIL_TraceLine(vecSrc, vecSrc + vecAiming * 128, dont_ignore_monsters, ENT(m_pPlayer->pev), &tr);
-	Vector angles = UTIL_VecToAngles(tr.vecPlaneNormal);
-	CBaseEntity* pEnt = CBaseEntity::Create("monster_tripmine", tr.vecEndPos + tr.vecPlaneNormal * 8, angles, m_pPlayer->edict());
-	CTripmineGrenade* pMine = (CTripmineGrenade*)pEnt;
-	m_pPlayer->m_rgAmmo[m_iPrimaryAmmoType]--;
-}
 
-void CTripmine::PlaceMineLast(void)
+void CTripmine::Holster()
 {
-	Vector vecSrc = m_pPlayer->GetGunPosition();
-	Vector vecAiming = gpGlobals->v_forward;
-	TraceResult tr;
-	UTIL_TraceLine(vecSrc, vecSrc + vecAiming * 128, dont_ignore_monsters, ENT(m_pPlayer->pev), &tr);
-	Vector angles = UTIL_VecToAngles(tr.vecPlaneNormal);
-	CBaseEntity* pEnt = CBaseEntity::Create("monster_tripmine", tr.vecEndPos + tr.vecPlaneNormal * 8, angles, m_pPlayer->edict());
-	CTripmineGrenade* pMine = (CTripmineGrenade*)pEnt;
-	m_pPlayer->m_rgAmmo[m_iPrimaryAmmoType]--;
-}
-void CTripmine::Holster( )
-{
-	m_pPlayer->m_flNextAttack = gpGlobals->time + 0.5;
+	m_pPlayer->m_flNextAttack = UTIL_WeaponTimeBase() + 0.5;
 
-	if (!m_pPlayer->m_rgAmmo[m_iPrimaryAmmoType])
+	if (0 == m_pPlayer->m_rgAmmo[m_iPrimaryAmmoType])
 	{
 		// out of mines
-		m_pPlayer->pev->weapons &= ~(1<<WEAPON_TRIPMINE);
-		SetThink(&CTripmine::DestroyItem );
+		m_pPlayer->ClearWeaponBit(m_iId);
+		SetThink(&CTripmine::DestroyItem);
 		pev->nextthink = gpGlobals->time + 0.1;
 	}
 
-	SendWeaponAnim( TRIPMINE_HOLSTER );
+	SendWeaponAnim(TRIPMINE_HOLSTER);
 	EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, "common/null.wav", 1.0, ATTN_NORM);
 }
 
-void CTripmine::PrimaryAttack( void )
+void CTripmine::PrimaryAttack()
 {
 	if (m_pPlayer->m_rgAmmo[m_iPrimaryAmmoType] <= 0)
 		return;
 
-	UTIL_MakeVectors( m_pPlayer->pev->v_angle + m_pPlayer->pev->punchangle );
-	Vector vecSrc	 = m_pPlayer->GetGunPosition( );
+	UTIL_MakeVectors(m_pPlayer->pev->v_angle + m_pPlayer->pev->punchangle);
+	Vector vecSrc = m_pPlayer->GetGunPosition();
 	Vector vecAiming = gpGlobals->v_forward;
 
 	TraceResult tr;
 
-	UTIL_TraceLine( vecSrc, vecSrc + vecAiming * 128, dont_ignore_monsters, ENT( m_pPlayer->pev ), &tr );
+	UTIL_TraceLine(vecSrc, vecSrc + vecAiming * 128, dont_ignore_monsters, ENT(m_pPlayer->pev), &tr);
+
+	int flags;
+#ifdef CLIENT_WEAPONS
+	flags = FEV_NOTHOST;
+#else
+	flags = 0;
+#endif
+
+	PLAYBACK_EVENT_FULL(flags, m_pPlayer->edict(), m_usTripFire, 0.0, g_vecZero, g_vecZero, 0.0, 0.0, 0, 0, 0, 0);
 
 	if (tr.flFraction < 1.0)
 	{
-		// ALERT( at_console, "hit %f\n", tr.flFraction );
-
-		CBaseEntity *pEntity = CBaseEntity::Instance( tr.pHit );
-		if (pEntity && !(pEntity->pev->flags & FL_CONVEYOR))
+		CBaseEntity* pEntity = CBaseEntity::Instance(tr.pHit);
+		if (pEntity && (pEntity->pev->flags & FL_CONVEYOR) == 0)
 		{
 
-			//CBaseEntity *pEnt = CBaseEntity::Create( "monster_tripmine", tr.vecEndPos + tr.vecPlaneNormal * 8, angles, m_pPlayer->edict() );
+			pev->nextthink = gpGlobals->time + 0.02;
 
-			//CTripmineGrenade *pMine = (CTripmineGrenade *)pEnt;
+			Vector angles = UTIL_VecToAngles(tr.vecPlaneNormal);
+
+			CBaseEntity* pEnt = CBaseEntity::Create("monster_tripmine", tr.vecEndPos + tr.vecPlaneNormal * 8, angles, m_pPlayer->edict());
+
+			m_pPlayer->m_rgAmmo[m_iPrimaryAmmoType]--;
 
 			// player "shoot" animation
-			//m_pPlayer->SetAnimation( PLAYER_ATTACK1 );
-			if (m_pPlayer->m_rgAmmo[m_iPrimaryAmmoType] > 1)
+			m_pPlayer->SetAnimation(PLAYER_ATTACK1);
+
+			if (m_pPlayer->m_rgAmmo[m_iPrimaryAmmoType] <= 0)
 			{
-				pev->nextthink = gpGlobals->time + 1.9;
-				m_pPlayer->SetAnimation(PLAYER_ATTACK1);
-				SendWeaponAnim(TRIPMINE_ARM2);
-				SetThink(&CTripmine::PlaceMine);
-				m_flNextPrimaryAttack = gpGlobals->time + 0.1;
-				
+				// no more mines!
+				RetireWeapon();
+				return;
 			}
-			else
-			{
-				pev->nextthink = gpGlobals->time + 0.1;
-				SendWeaponAnim(TRIPMINE_HOLSTER);
-				SetThink(&CTripmine::PlaceMineLast);
-				m_flNextPrimaryAttack = gpGlobals->time + 0.1;
-				
-			}
-			//pev->nextthink = gpGlobals->time + 1.3;
 		}
 		else
 		{
@@ -507,10 +485,10 @@ void CTripmine::PrimaryAttack( void )
 	}
 	else
 	{
-
 	}
 
-	m_flTimeWeaponIdle = gpGlobals->time + RANDOM_FLOAT ( 10, 15 );
+	m_flNextPrimaryAttack = GetNextAttackDelay(0.3);
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + UTIL_SharedRandomFloat(m_pPlayer->random_seed, 10, 15);
 }
 
 void CTripmine::WeaponIdle()

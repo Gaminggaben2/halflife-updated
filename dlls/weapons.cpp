@@ -318,6 +318,8 @@ void W_Precache()
 	// hand grenade
 	UTIL_PrecacheOtherWeapon("weapon_handgrenade");
 
+	UTIL_PrecacheOtherWeapon("weapon_molotov");
+
 	// squeak grenade
 	UTIL_PrecacheOtherWeapon("weapon_snark");
 

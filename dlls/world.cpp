@@ -574,6 +574,12 @@ void CWorld::Precache()
 	{
 		PRECACHE_MODEL("models/hgibs.mdl");
 		PRECACHE_MODEL("models/agibs.mdl");
+		PRECACHE_MODEL("models/zombiegibs1.mdl");
+		PRECACHE_MODEL("models/gib_hgrunt.mdl");
+		PRECACHE_MODEL("models/islave_gibs1.mdl");
+		PRECACHE_MODEL("models/CONTROLLER_Gib1.mdl");
+		PRECACHE_MODEL("models/AGRUNT_Gibs1.mdl");
+		PRECACHE_MODEL("models/hound_Gibs1.mdl");
 	}
 
 	PRECACHE_SOUND("weapons/ric1.wav");

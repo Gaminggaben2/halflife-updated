@@ -37,6 +37,7 @@ public:
 
 	static CGrenade* ShootTimed(entvars_t* pevOwner, Vector vecStart, Vector vecVelocity, float time);
 	static CGrenade* ShootContact(entvars_t* pevOwner, Vector vecStart, Vector vecVelocity);
+	static CGrenade* MollyContact(entvars_t* pevOwner, Vector vecStart, Vector vecVelocity);
 	static CGrenade* ShootSatchelCharge(entvars_t* pevOwner, Vector vecStart, Vector vecVelocity);
 	static void UseSatchelCharges(entvars_t* pevOwner, SATCHELCODE code);
 
@@ -703,6 +704,8 @@ enum shotgun_e
 	SHOTGUN_START_RELOAD,
 	SHOTGUN_DRAW,
 	SHOTGUN_HOLSTER,
+	SHOTGUN_IDLE2,
+	SHOTGUN_IDLE3,
 	SHOTGUN_IDLE4,
 	SHOTGUN_IDLE_DEEP
 };
@@ -1172,6 +1175,8 @@ public:
 
 	void PrimaryAttack() override;
 	bool Deploy() override;
+	void PlaceMine(void);
+	void PlaceMineLast(void);
 	void Holster() override;
 	void WeaponIdle() override;
 
@@ -1186,6 +1191,45 @@ public:
 
 private:
 	unsigned short m_usTripFire;
+};
+
+enum molotov_e
+{
+	MOLOTOV_IDLE = 0,
+	MOLOTOV_FIDGET,
+	MOLOTOV_PINPULL,
+	MOLOTOV_THROW1, // toss
+	MOLOTOV_THROW2, // medium
+	MOLOTOV_THROW3, // hard
+	MOLOTOV_HOLSTER,
+	MOLOTOV_DRAW
+};
+
+
+class CMolotov : public CBasePlayerWeapon
+{
+public:
+	void Spawn() override;
+	void Precache() override;
+	int iItemSlot() override { return 5; }
+	bool GetItemInfo(ItemInfo* p) override;
+
+	void PrimaryAttack() override;
+//	static CMolotov* ShootContact(entvars_t* pevOwner, Vector vecStart, Vector vecVelocity);
+	void EXPORT ExplodeTouch(CBaseEntity* pOther);
+	bool Deploy() override;
+	bool CanHolster() override;
+	void Holster() override;
+	void WeaponIdle() override;
+
+	bool UseDecrement() override
+	{
+#if defined(CLIENT_WEAPONS)
+		return true;
+#else
+		return false;
+#endif
+	}
 };
 
 enum squeak_e

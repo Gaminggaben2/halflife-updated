@@ -35,12 +35,21 @@
 #define BARNEY_AE_DRAW (2)
 #define BARNEY_AE_SHOOT (3)
 #define BARNEY_AE_HOLSTER (4)
+#define BARNEY_AE_RELOAD (5)
 
 #define BARNEY_BODY_GUNHOLSTERED 0
 #define BARNEY_BODY_GUNDRAWN 1
 #define BARNEY_BODY_GUNGONE 2
 
-class CBarney : public CTalkMonster
+#define BARNEY_CLIP_SIZE 18
+//=========================================================
+// monster-specific schedule types
+//=========================================================
+enum
+{
+	SCHED_BARNEY_COVER_AND_RELOAD = LAST_COMMON_SCHEDULE + 1,
+};
+	class CBarney : public CTalkMonster
 {
 public:
 	void Spawn() override;
@@ -70,6 +79,8 @@ public:
 
 	void TalkInit();
 
+	void CheckAmmo() override;
+
 	void TraceAttack(entvars_t* pevAttacker, float flDamage, Vector vecDir, TraceResult* ptr, int bitsDamageType) override;
 	void Killed(entvars_t* pevAttacker, int iGib) override;
 
@@ -81,6 +92,10 @@ public:
 	float m_painTime;
 	float m_checkAttackTime;
 	bool m_lastAttackCheck;
+
+	
+
+	int m_cClipSize;
 
 	// UNDONE: What is this for?  It isn't used?
 	float m_flPlayerDamage; // how much pain has the player inflicted on me?
@@ -97,6 +112,7 @@ TYPEDESCRIPTION CBarney::m_SaveData[] =
 		DEFINE_FIELD(CBarney, m_checkAttackTime, FIELD_TIME),
 		DEFINE_FIELD(CBarney, m_lastAttackCheck, FIELD_BOOLEAN),
 		DEFINE_FIELD(CBarney, m_flPlayerDamage, FIELD_FLOAT),
+		DEFINE_FIELD(CBarney, m_cClipSize, FIELD_INTEGER),
 };
 
 IMPLEMENT_SAVERESTORE(CBarney, CTalkMonster);
@@ -195,11 +211,34 @@ Schedule_t slIdleBaStand[] =
 			"IdleStand"},
 };
 
+Task_t tlBarneyHideReload[] =
+	{
+		{TASK_STOP_MOVING, (float)0},
+		{TASK_SET_FAIL_SCHEDULE, (float)SCHED_RELOAD},
+		{TASK_FIND_COVER_FROM_ENEMY, (float)0},
+		{TASK_RUN_PATH, (float)0},
+		{TASK_WAIT_FOR_MOVEMENT, (float)0},
+		{TASK_REMEMBER, (float)bits_MEMORY_INCOVER},
+		{TASK_FACE_ENEMY, (float)0},
+		{TASK_PLAY_SEQUENCE, (float)ACT_RELOAD},
+};
+
+Schedule_t slBarneyHideReload[] =
+	{
+		{tlBarneyHideReload,
+			ARRAYSIZE(tlBarneyHideReload),
+			bits_COND_HEAVY_DAMAGE |
+				bits_COND_HEAR_SOUND,
+
+			bits_SOUND_DANGER,
+			"BarneyHideReload"}};
+
 DEFINE_CUSTOM_SCHEDULES(CBarney){
 	slBaFollow,
 	slBarneyEnemyDraw,
 	slBaFaceTarget,
 	slIdleBaStand,
+	slBarneyHideReload,
 };
 
 
@@ -207,7 +246,17 @@ IMPLEMENT_CUSTOM_SCHEDULES(CBarney, CTalkMonster);
 
 void CBarney::StartTask(Task_t* pTask)
 {
+	m_iTaskStatus = TASKSTATUS_RUNNING;
 	CTalkMonster::StartTask(pTask);
+
+	switch (pTask->iTask)
+	{
+	case TASK_RELOAD:
+		m_IdealActivity = ACT_RELOAD;
+		break;
+	}
+
+
 }
 
 void CBarney::RunTask(Task_t* pTask)
@@ -384,6 +433,12 @@ void CBarney::HandleAnimEvent(MonsterEvent_t* pEvent)
 		m_fGunDrawn = false;
 		break;
 
+	case BARNEY_AE_RELOAD:
+		EMIT_SOUND(ENT(pev), CHAN_WEAPON, "barney/gr_reload1.wav", 1, ATTN_NORM);
+		m_cAmmoLoaded = m_cClipSize;
+		ClearConditions(bits_COND_NO_AMMO_LOADED);
+		break;
+
 	default:
 		CTalkMonster::HandleAnimEvent(pEvent);
 	}
@@ -406,6 +461,8 @@ void CBarney::Spawn()
 	pev->view_ofs = Vector(0, 0, 50);  // position of the eyes relative to monster's origin.
 	m_flFieldOfView = VIEW_FIELD_WIDE; // NOTE: we need a wide field of view so npc will notice player and say hello
 	m_MonsterState = MONSTERSTATE_NONE;
+	m_cClipSize = BARNEY_CLIP_SIZE;
+	m_cAmmoLoaded = m_cClipSize;
 
 	pev->body = 0; // gun in holster
 	m_fGunDrawn = false;
@@ -560,6 +617,17 @@ void CBarney::DeathSound()
 	}
 }
 
+//=========================================================
+// CheckAmmo - overridden for the grunt because he actually
+// uses ammo! (base class doesn't)
+//=========================================================
+void CBarney::CheckAmmo()
+{
+	if (m_cAmmoLoaded <= 0)
+	{
+		SetConditions(bits_COND_NO_AMMO_LOADED);
+	}
+}
 
 void CBarney::TraceAttack(entvars_t* pevAttacker, float flDamage, Vector vecDir, TraceResult* ptr, int bitsDamageType)
 {
@@ -652,7 +720,13 @@ Schedule_t* CBarney::GetScheduleOfType(int Type)
 			return slIdleBaStand;
 		}
 		else
+
 			return psched;
+
+	case SCHED_BARNEY_COVER_AND_RELOAD:
+	{
+		return &slBarneyHideReload[0];
+	}
 	}
 
 	return CTalkMonster::GetScheduleOfType(Type);
@@ -701,6 +775,18 @@ Schedule_t* CBarney::GetSchedule()
 
 		if (HasConditions(bits_COND_HEAVY_DAMAGE))
 			return GetScheduleOfType(SCHED_TAKE_COVER_FROM_ENEMY);
+
+		if (HasConditions(bits_COND_NO_AMMO_LOADED))
+		{
+			//!!!KELLY - this individual just realized he's out of bullet ammo.
+			// He's going to try to find cover to run to and reload, but rarely, if
+			// none is available, he'll drop and reload in the open here.
+			if (m_cAmmoLoaded <= 0)
+			{
+				m_cAmmoLoaded = 18;
+				return GetScheduleOfType(SCHED_BARNEY_COVER_AND_RELOAD);
+			}
+		}
 	}
 	break;
 
