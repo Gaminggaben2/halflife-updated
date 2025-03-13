@@ -487,7 +487,6 @@ void CTripmine::PrimaryAttack( void )
 				m_pPlayer->SetAnimation(PLAYER_ATTACK1);
 				SendWeaponAnim(TRIPMINE_ARM2);
 				SetThink(&CTripmine::PlaceMine);
-				m_flNextPrimaryAttack = gpGlobals->time + 0.1;
 				
 			}
 			else
@@ -495,7 +494,6 @@ void CTripmine::PrimaryAttack( void )
 				pev->nextthink = gpGlobals->time + 0.1;
 				SendWeaponAnim(TRIPMINE_HOLSTER);
 				SetThink(&CTripmine::PlaceMineLast);
-				m_flNextPrimaryAttack = gpGlobals->time + 0.1;
 				
 			}
 			//pev->nextthink = gpGlobals->time + 1.3;
@@ -510,6 +508,7 @@ void CTripmine::PrimaryAttack( void )
 
 	}
 
+	m_flNextPrimaryAttack = gpGlobals->time + 0.1;
 	m_flTimeWeaponIdle = gpGlobals->time + RANDOM_FLOAT ( 10, 15 );
 }
 
