@@ -210,8 +210,7 @@ void CGib::SpawnRandomGibs(entvars_t* pevVictim, int cGibs, bool human)
 		CGib* pGib = GetClassPtr((CGib*)NULL);
 
 		
-//		else
-//		{
+
 			if (human)
 			{
 				// human pieces
